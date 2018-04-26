@@ -2,7 +2,7 @@ from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
 from exts import db
 from  pinglun import app
-from model import User,Question
+from model import User,Question, Comment
 
 manage = Manager(app)
 

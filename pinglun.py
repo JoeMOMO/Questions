@@ -1,8 +1,9 @@
 from flask import Flask, render_template, request,redirect,url_for,session
 import config
-from model import User,Question
+from model import User,Question,Comment
 from exts import db
 from decorators import login_required
+from sqlalchemy import or_
 
 app = Flask(__name__)
 app.config.from_object(config)
@@ -36,7 +37,30 @@ def login():
         else:
             return u'手机号码或者密码不对，请重新登录！'
 
+@app.route('/comment/',methods=['POST'])
+@login_required
+def add_comment():
+    content = request.form.get('comment-content')
+    question_id = request.form.get('question_id')
 
+    comment = Comment(content= content)
+    user_id = session.get('user_id')
+    user = User.query.filter(User.id == user_id).first()
+    comment.author = user
+    question = Question.query.filter(Question.id == question_id).first()
+    comment.question = question
+
+    db.session.add(comment)
+    db.session.commit()
+
+    return redirect(url_for('detail', question_id = question_id))
+
+@app.route('/search/')
+def search():
+    search_str = request.args.get('q')
+    question = Question.query.filter(or_(Question.title.contains(search_str), Question.content.contains(search_str))).order_by('-time')
+    if question:
+        return render_template('index.html', questions = question)
 
 @app.route('/regist/', methods = ['GET', 'POST'])
 def regist():
@@ -61,6 +85,16 @@ def regist():
                 db.session.commit()
                 return redirect(url_for('login'))
 
+@app.route('/detail/<question_id>')
+def detail(question_id):
+    question_model = Question.query.filter(Question.id == question_id).first()
+   # question_model.content = question_model.content.replace(" ","&nbsp;").replace("/\n|\r\n","<br>")
+    return render_template('detail.html', question_model = question_model)
+
+@app.route('/logout/')
+def logout():
+    session.clear()
+    return  redirect(url_for('login'))
 
 
 @app.route('/questions/', methods = ['GET', 'POST'])
@@ -82,6 +116,13 @@ def questions():
         db.session.commit()
         return redirect(url_for('index'))
 
+@app.context_processor
+def my_context_processor():
+    if session.get('user_id'):
+        user = User.query.filter(User.id == session.get('user_id')).first()
+        return {'user': user}
+    else:
+        return {}
 
 
 if __name__ == '__main__':
